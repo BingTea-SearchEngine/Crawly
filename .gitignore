@@ -1,0 +1,11 @@
+.cache
+build
+build/*
+
+compile_commands.json
+
+.vscode
+.DS_Store
+.nvim
+.nvim/*
+
