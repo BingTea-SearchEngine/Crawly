@@ -16,7 +16,6 @@
 void parseHtml(std::string url,
                std::shared_ptr<std::vector<std::string>> newUrls,
                pthread_mutex_t* m, std::string outputDir) {
-    spdlog::info(url);
     GetSSL conn(url);
     std::string html = conn.getHtml();
 
@@ -117,7 +116,7 @@ int main(int argc, char** argv) {
 
     std::string socketPath = std::string(argv[1]);
     int numThreads = std::stoi(argv[2]);
-    std::string outputDir = std::string(argv[3]);
+    std::string outputDir = PROJECT_ROOT + std::string(argv[3]);
 
     Crawly crawly(socketPath, numThreads, outputDir);
     spdlog::info(crawly.getInfo());

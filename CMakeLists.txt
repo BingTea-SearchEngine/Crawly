@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -std=c++17 -g -fsanitize=thread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -std=c++17")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 enable_testing()
@@ -21,6 +21,7 @@ FetchContent_Declare(
   GIT_TAG        v1.12.0
 )
 FetchContent_MakeAvailable(spdlog)
+
 
 FetchContent_Declare(
     Frontier
@@ -54,10 +55,12 @@ set(HIVE_INCLUDE_DIR "${hive_SOURCE_DIR}/lib")
 message(STATUS "Hive project source directory: ${HIVE_SOURCE_DIR}")
 message(STATUS "Hive include directory: ${HIVE_INCLUDE_DIR}")
 
-set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
-
+set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+add_definitions(-DPROJECT_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
 add_executable(${THIS} ${SRC_DIR}/Crawly.cpp)
-target_link_libraries(${THIS} PUBLIC FrontierInterface spdlog::spdlog ThreadPoolLib pthread GetSSL)
+target_link_libraries(${THIS} PUBLIC spdlog::spdlog FrontierInterface ThreadPoolLib pthread GetSSL)
 target_include_directories(${THIS} PRIVATE ${FRONTIER_INTERFACE_INCLUDE_DIR} ${HIVE_INCLUDE_DIR}
     ${LIB_DIR}/GetSSL)
 
+# Specify build type
+set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type")
