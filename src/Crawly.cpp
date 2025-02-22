@@ -15,21 +15,28 @@
 
 void parseHtml(std::string url,
                std::shared_ptr<std::vector<std::string>> newUrls,
+               std::shared_ptr<std::vector<std::string>> robotsUrls,
                pthread_mutex_t* m, std::string outputDir) {
+    // Establish connection with url
     GetSSL conn(url);
+    // Get the html as a string
     std::string html = conn.getHtml();
+    std::vector<std::string> robotsTxt = conn.getRobots();
 
     std::string temp = url;
-    std::replace(url.begin(), url.end(), '/', '.');
-    std::string outFilename = outputDir + "/" + url;
+
+    // Replace url / with ; for filename
+    std::replace(url.begin(), url.end(), '/', ';');
     std::ofstream outFile(outputDir + "/" + url);
     if (!outFile) {
-        std::cerr << "Error opening outfile " << outFilename << std::endl;
+        std::cerr << "Error opening outfile " << outputDir + "/" + url << std::endl;
         return;
     }
     outFile << html;
     outFile.close();
+
     pthread_mutex_lock(m);
+    robotsUrls->push_back(temp);
     newUrls->push_back(temp);
     pthread_mutex_unlock(m);
 }
@@ -75,19 +82,33 @@ void Crawly::start() {
         std::string response(responseLen, '\0');
         recv(_clientSock, response.data(), responseLen, 0);
 
-        auto urls = FrontierInterface::Decode(response);
+        if (responseLen == 0) break;
+        auto [type, urls] = FrontierInterface::Decode(response);
+        assert(type!=MessageType::ROBOTS);
         // std::vector<std::string> newUrls;
         auto newUrls = std::make_shared<std::vector<std::string>>();
+        auto robotsUrls = std::make_shared<std::vector<std::string>>();
         spdlog::info("Received {}", urls);
         pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
         for (auto url : urls) {
-            _threads.queue(Task(parseHtml, url, newUrls, &mutex, _outputDir));
+            _threads.queue(Task(parseHtml, url, newUrls, robotsUrls, &mutex, _outputDir));
         }
 
         _threads.wait();
 
-        std::string encoded = FrontierInterface::Encode(urls);
+        if (robotsUrls->size() > 0) {
+            // Send robots.txt
+            spdlog::info("Sending robots {}", *robotsUrls);
+            std::string robotsEncoded = FrontierInterface::Encode(Message{MessageType::ROBOTS, *robotsUrls});
+            messageLen = htonl(robotsEncoded.size());
+            send(_clientSock, &messageLen, sizeof(messageLen), 0);
+            send(_clientSock, robotsEncoded.data(), robotsEncoded.size(), 0);
+        }
+
+        // Send URLS
+        spdlog::info("Sending urls {}", *newUrls);
+        std::string encoded = FrontierInterface::Encode(Message{MessageType::URLS, *newUrls});
         messageLen = htonl(encoded.size());
         send(_clientSock, &messageLen, sizeof(messageLen), 0);
         send(_clientSock, encoded.data(), encoded.size(), 0);

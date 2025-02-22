@@ -7,6 +7,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <iostream>
+#include <vector>
+
+using std::cout, std::endl;
 
 ParsedUrl::ParsedUrl(const char* url) {
     // Assumes url points to static text but
@@ -65,9 +68,9 @@ ParsedUrl::~ParsedUrl() {
     delete[] pathBuffer;
 }
 
-GetSSL::GetSSL(std::string url) : _parsedUrl(ParsedUrl(url.c_str())) {
+GetSSL::GetSSL(std::string url) : _parsedUrl(ParsedUrl(url.c_str())), _url(url) {
     SSL_library_init();
-    _ctx = SSL_CTX_new(SSLv23_method());
+    _ctx = SSL_CTX_new(TLS_method());
     _ssl = SSL_new(_ctx);
 
     // Get the host address.
@@ -128,7 +131,7 @@ std::string GetSSL::getHtml() {
         return "";
     }
 
-    // Create message
+    // Create messag
     std::string request = "GET /" + std::string(_parsedUrl.Path) +
                           " HTTP/1.1\r\n"
                           "Host: " +
@@ -170,4 +173,51 @@ std::string GetSSL::getHtml() {
     }
 
     return html;
+}
+
+std::vector<std::string> GetSSL::getRobots() {
+    if (strlen(_parsedUrl.Path) > 0) {
+        return {};
+    }
+    std::string robotsUrl = _url+"/robots.txt";
+    std::string request = std::string("GET /robots.txt") +
+                          " HTTP/1.1\r\n"
+                          "Host: " +
+                          std::string(_parsedUrl.Host) +
+                          "\r\n"
+                          "Connection: close\r\n"
+                          "User-Agent: wbjin@umich.edu\r\n"
+                          "\r\n";
+    cout << request << endl;
+
+    if (SSL_write(_ssl, request.c_str(), request.length()) <= 0) {
+        _valid = false;
+        std::cerr << "Error sending request\n";
+        SSL_shutdown(_ssl);
+        SSL_free(_ssl);
+        close(_sockFd);
+        SSL_CTX_free(_ctx);
+        return {};
+    }
+
+    char buffer[10240];
+    int bytesReceived;
+    std::string response;
+
+    int ssl_error = SSL_get_error(_ssl, 0);
+    if (ssl_error == SSL_ERROR_ZERO_RETURN) {
+        std::cerr << "SSL connection closed cleanly by the server\n";
+    } else if (ssl_error == SSL_ERROR_SYSCALL) {
+        std::cerr << "SSL syscall error: " << strerror(errno) << std::endl;
+    } else {
+        std::cerr << "SSL error: " << ssl_error << std::endl;
+    }
+
+    while ((bytesReceived = SSL_read(_ssl, buffer, sizeof(buffer) - 1)) > 0) {
+        cout << bytesReceived << endl;
+        buffer[bytesReceived] = '\0';
+        response.append(buffer, bytesReceived);
+    }
+    cout << response << endl;
+    return {};
 }

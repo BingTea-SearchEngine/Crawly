@@ -29,4 +29,4 @@ private:
 };
 
 // Parse the html at url and add the new urls to the newUrls while holding the mutex
-void parseHtml(std::string url, std::shared_ptr<std::vector<std::string>> newUrls, pthread_mutex_t* m, std::string outputDir);
+void parseHtml(std::string url, std::shared_ptr<std::vector<std::string>> newUrls, std::shared_ptr<std::vector<std::string>> robotsUrls, pthread_mutex_t* m, std::string outputDir);

@@ -26,7 +26,7 @@ FetchContent_MakeAvailable(spdlog)
 FetchContent_Declare(
     Frontier
     GIT_REPOSITORY https://github.com/BingTea-SearchEngine/Frontier.git
-    GIT_TAG main
+    GIT_TAG robots-txt-handling
 )
 FetchContent_MakeAvailable(Frontier)
 
@@ -58,7 +58,7 @@ message(STATUS "Hive include directory: ${HIVE_INCLUDE_DIR}")
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 add_definitions(-DPROJECT_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
 add_executable(${THIS} ${SRC_DIR}/Crawly.cpp)
-target_link_libraries(${THIS} PUBLIC spdlog::spdlog FrontierInterface ThreadPoolLib pthread GetSSL)
+target_link_libraries(${THIS} PUBLIC spdlog::spdlog FrontierInterface Hive pthread GetSSL)
 target_include_directories(${THIS} PRIVATE ${FRONTIER_INTERFACE_INCLUDE_DIR} ${HIVE_INCLUDE_DIR}
     ${LIB_DIR}/GetSSL)
 
