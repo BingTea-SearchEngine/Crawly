@@ -2,43 +2,108 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/spdlog.h>
 #include <algorithm>
-#include <fstream>
-#include <iostream>
 #include <memory>
 
 #include "Crawly.hpp"
 #include "FrontierInterface.hpp"
+#include "GetURL.hpp"
 #include "GetSSL.hpp"
+#include "Parser.hpp"
 #include "ThreadPool.hpp"
 
 #include <pthread.h>
 
+void writeParsedHtml(std::ofstream& outFile, std::string url, int pageNum,
+                     Parser& htmlParser) {
+    outFile << "URL: " << url << " Batch number: " << pageNum <<"\n";
+    outFile << "<!DOCTYPE html>\n" << "<html>\n";
+
+    outFile << "<title>\n";
+    for (auto w : htmlParser.getTitle())
+        outFile << w << " ";
+    outFile << "\n</title>\n\n";
+
+    outFile << "<body "
+               "style=\"font-family:Verdana,Arial,Helvetica,sans-serif;"
+               "font-size:0.9em\">\n"
+            << "<h2>\n"
+            << "Body text\n"
+            << "</h2>\n";
+
+    outFile << "<p>\n";
+    for (auto w : htmlParser.getWords())
+        outFile << w << " ";
+    outFile << "\n<p>\n\n";
+
+    outFile << "<h2>\n" << "Links\n" << "</h2>\n";
+    for (auto link : htmlParser.getUrls()) {
+        outFile << "<p>"
+                << "<a href=\"" << link.url << "\">" << link.url << "</a> ( \n";
+        for (auto w : link.anchorText)
+            outFile << w << " ";
+        outFile << ")\n" << "</p>\n";
+    }
+
+    outFile << "</body>\n" << "</html>\n";
+}
+
 void parseHtml(std::string url,
                std::shared_ptr<std::vector<std::string>> newUrls,
                std::shared_ptr<std::vector<std::string>> robotsUrls,
+               std::shared_ptr<std::unordered_map<std::string, bool>> success,
+               int batchNum, 
                pthread_mutex_t* m, std::string outputDir) {
-    // Establish connection with url
-    GetSSL conn(url);
+    GetSSL sslConn(url);
     // Get the html as a string
-    std::string html = conn.getHtml();
-    std::vector<std::string> robotsTxt = conn.getRobots();
-
-    std::string temp = url;
-
-    // Replace url / with ; for filename
-    std::replace(url.begin(), url.end(), '/', ';');
-    std::ofstream outFile(outputDir + "/" + url);
-    if (!outFile) {
-        std::cerr << "Error opening outfile " << outputDir + "/" + url << std::endl;
+    std::optional<std::string> html = sslConn.getHtml();
+    if (!html) {
+        // Try again with http
+        GetURL conn(url);
+        html = conn.getHtml();
+        if (!html) {
+            success->insert({url, false});
+            return;
+        }
+    }
+    Parser htmlParser(*html);
+    // std::vector<std::string> robotsTxt = conn.getRobots();
+    std::vector<std::string> title = htmlParser.getTitle();
+    if (title.size() == 0) {
+        success->insert({url, false});
         return;
     }
-    outFile << html;
-    outFile.close();
+    if (title.size() == 2 && title[0] == "Not" && title[1] == "Found") {
+        success->insert({url, false});
+        return;
+    }
+    if (title.size() < 3 || (title[0] != "301" || title[1] != "Moved" || title[2] != "Permanently")) {
+        std::string filename = url;
+
+        // Replace url / with ; for filename
+        std::replace(filename.begin(), filename.end(), '/', ';');
+        std::ofstream outFile(outputDir + "/" + std::to_string(batchNum) + "-" + filename);
+        if (!outFile) {
+            std::cerr << "Error opening outfile " << outputDir + "/" + url
+                      << std::endl;
+            success->insert({url, false});
+            return;
+        }
+        writeParsedHtml(outFile, url, batchNum, htmlParser);
+        outFile.close();
+    }
 
     pthread_mutex_lock(m);
-    robotsUrls->push_back(temp);
-    newUrls->push_back(temp);
+    // robotsUrls->push_back(temp);
+    for (auto newUrl : htmlParser.getUrls()) {
+        if (newUrl.url[0] == '/') {
+            newUrl.url = url + newUrl.url;
+        } else if (newUrl.url.compare(0, 4, "http") != 0) {
+            continue;
+        }
+        newUrls->push_back(newUrl.url);
+    }
     pthread_mutex_unlock(m);
+    success->insert({url, true});
 }
 
 Crawly::Crawly(std::string socketPath, int numThreads, std::string outputDir)
@@ -62,6 +127,16 @@ Crawly::Crawly(std::string socketPath, int numThreads, std::string outputDir)
         spdlog::error("Connect failed");
         exit(EXIT_FAILURE);
     }
+
+    _logFile.open(outputDir + "/logs");
+    _logFile << "Error urls\n";
+}
+
+Crawly::~Crawly() {
+    spdlog::info("{} successful out of {} received", _numSuccessful, _numReceived);
+    close(_clientSock);
+    _logFile.flush();
+    _logFile.close();
 }
 
 std::string Crawly::getInfo() {
@@ -82,36 +157,59 @@ void Crawly::start() {
         std::string response(responseLen, '\0');
         recv(_clientSock, response.data(), responseLen, 0);
 
-        if (responseLen == 0) break;
+        if (responseLen == 0)
+            break;
         auto [type, urls] = FrontierInterface::Decode(response);
-        assert(type!=MessageType::ROBOTS);
+        assert(type != MessageType::ROBOTS);
         // std::vector<std::string> newUrls;
         auto newUrls = std::make_shared<std::vector<std::string>>();
         auto robotsUrls = std::make_shared<std::vector<std::string>>();
         spdlog::info("Received {}", urls);
         pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+        auto success =
+            std::make_shared<std::unordered_map<std::string, bool>>();
+        _numReceived+=urls.size();
+        _batchNum++;
 
         for (auto url : urls) {
-            _threads.queue(Task(parseHtml, url, newUrls, robotsUrls, &mutex, _outputDir));
+            _threads.queue(
+                Task(parseHtml, url, newUrls, robotsUrls, success, _batchNum, &mutex, _outputDir));
         }
 
         _threads.wait();
 
+        for (auto [url, success] : *success) {
+            if (!success) {
+                spdlog::error("Error getting {}", url);
+                _logFile << url << "\n";
+            } else {
+                _numSuccessful++;
+            }
+        }
+
         if (robotsUrls->size() > 0) {
             // Send robots.txt
-            spdlog::info("Sending robots {}", *robotsUrls);
-            std::string robotsEncoded = FrontierInterface::Encode(Message{MessageType::ROBOTS, *robotsUrls});
+            // spdlog::info("Sending robots {}", *robotsUrls);
+            std::string robotsEncoded = FrontierInterface::Encode(
+                Message{MessageType::ROBOTS, *robotsUrls});
             messageLen = htonl(robotsEncoded.size());
             send(_clientSock, &messageLen, sizeof(messageLen), 0);
             send(_clientSock, robotsEncoded.data(), robotsEncoded.size(), 0);
         }
 
         // Send URLS
-        spdlog::info("Sending urls {}", *newUrls);
-        std::string encoded = FrontierInterface::Encode(Message{MessageType::URLS, *newUrls});
+        // spdlog::info("Sending urls {}", *newUrls);
+        std::string encoded =
+            FrontierInterface::Encode(Message{MessageType::URLS, *newUrls});
         messageLen = htonl(encoded.size());
-        send(_clientSock, &messageLen, sizeof(messageLen), 0);
-        send(_clientSock, encoded.data(), encoded.size(), 0);
+        if (send(_clientSock, &messageLen, sizeof(messageLen), 0) <= 0) {
+            spdlog::error("Error sending message length");
+            return;
+        }
+        if (send(_clientSock, encoded.data(), encoded.size(), 0) <= 0) {
+            spdlog::error("Error sending message");
+            return;
+        }
     }
 
     // Exiting
@@ -129,6 +227,7 @@ void printUsage(const char* programName) {
 
 int main(int argc, char** argv) {
     spdlog::info("======= Crawly Started =======");
+    signal(SIGPIPE, SIG_IGN);
 
     if (argc != 4) {
         spdlog::error("Error: Invalid number of arguments");

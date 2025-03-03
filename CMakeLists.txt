@@ -26,7 +26,7 @@ FetchContent_MakeAvailable(spdlog)
 FetchContent_Declare(
     Frontier
     GIT_REPOSITORY https://github.com/BingTea-SearchEngine/Frontier.git
-    GIT_TAG robots-txt-handling
+    GIT_TAG bloom-integration
 )
 FetchContent_MakeAvailable(Frontier)
 
@@ -37,6 +37,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Hive)
 
+FetchContent_Declare(
+    HtmlParser
+    GIT_REPOSITORY https://github.com/BingTea-SearchEngine/HtmlParser.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(HtmlParser)
+
 set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib")
 
 find_package(OpenSSL REQUIRED)
@@ -44,6 +51,10 @@ find_package(OpenSSL REQUIRED)
 add_library(GetSSL STATIC ${LIB_DIR}/GetSSL/GetSSL.cpp)
 target_include_directories(GetSSL PRIVATE ${LIB_DIR}/GetSSL ${OPENSSL_INCLUDE_DIR})
 target_link_libraries(GetSSL INTERFACE OpenSSL::SSL OpenSSL::Crypto)
+
+add_library(GetURL STATIC ${LIB_DIR}/GetURL/GetURL.cpp)
+target_include_directories(GetURL PRIVATE ${LIB_DIR}/GetURL ${LIB_DIR}/GetSSL)
+target_link_libraries(GetURL PRIVATE GetSSL)
 
 set(FRONTIER_SOURCE_DIR ${frontier_SOURCE_DIR})
 set(FRONTIER_INTERFACE_INCLUDE_DIR "${frontier_SOURCE_DIR}/lib/FrontierInterface")
@@ -55,12 +66,18 @@ set(HIVE_INCLUDE_DIR "${hive_SOURCE_DIR}/lib")
 message(STATUS "Hive project source directory: ${HIVE_SOURCE_DIR}")
 message(STATUS "Hive include directory: ${HIVE_INCLUDE_DIR}")
 
+set(PARSER_SOURCE_DIR ${htmlparser_SOURCE_DIR})
+set(PARSER_INCLUDE_DIR "${htmlparser_SOURCE_DIR}/lib")
+message(STATUS "HTML Parser project source directory: ${PARSER_SOURCE_DIR}")
+message(STATUS "HTML PARSER include directory: ${PARSER_INCLUDE_DIR}")
+
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 add_definitions(-DPROJECT_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
 add_executable(${THIS} ${SRC_DIR}/Crawly.cpp)
-target_link_libraries(${THIS} PUBLIC spdlog::spdlog FrontierInterface Hive pthread GetSSL)
+target_link_libraries(${THIS} PUBLIC spdlog::spdlog FrontierInterface Hive pthread GetSSL
+    HtmlParser GetURL)
 target_include_directories(${THIS} PRIVATE ${FRONTIER_INTERFACE_INCLUDE_DIR} ${HIVE_INCLUDE_DIR}
-    ${LIB_DIR}/GetSSL)
+    ${LIB_DIR}/GetSSL ${LIB_DIR}/GetURL ${PARSER_INCLUDE_DIR})
 
 # Specify build type
 set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type")

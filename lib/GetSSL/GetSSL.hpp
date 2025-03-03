@@ -1,7 +1,8 @@
 #pragma once
 
-#include <string>
 #include <openssl/ssl.h>
+#include <optional>
+#include <string>
 
 class ParsedUrl {
    public:
@@ -17,20 +18,20 @@ class ParsedUrl {
 };
 
 class GetSSL {
-public:
+   public:
     GetSSL(std::string url);
 
     ~GetSSL();
 
-    std::string getHtml();
+    std::optional<std::string> getHtml();
 
     std::string getFilename();
 
     std::vector<std::string> getRobots();
 
-private:
+   private:
     const ParsedUrl _parsedUrl;
-    
+
     std::string _url;
 
     SSL_CTX* _ctx;

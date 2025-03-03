@@ -68,7 +68,8 @@ ParsedUrl::~ParsedUrl() {
     delete[] pathBuffer;
 }
 
-GetSSL::GetSSL(std::string url) : _parsedUrl(ParsedUrl(url.c_str())), _url(url) {
+GetSSL::GetSSL(std::string url)
+    : _parsedUrl(ParsedUrl(url.c_str())), _url(url) {
     SSL_library_init();
     _ctx = SSL_CTX_new(TLS_method());
     _ssl = SSL_new(_ctx);
@@ -95,6 +96,12 @@ GetSSL::GetSSL(std::string url) : _parsedUrl(ParsedUrl(url.c_str())), _url(url) 
         return;
     }
 
+    struct timeval timeout;
+    timeout.tv_sec = 15;
+    timeout.tv_usec = 0;
+    setsockopt(_sockFd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(_sockFd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
     // Connect the socket to the host address.
     if (connect(_sockFd, res->ai_addr, res->ai_addrlen) == -1) {
         std::cerr << "Error connecting to server\n";
@@ -108,7 +115,7 @@ GetSSL::GetSSL(std::string url) : _parsedUrl(ParsedUrl(url.c_str())), _url(url) 
     // to the socket we've connected.
     SSL_set_fd(_ssl, _sockFd);
     if (SSL_connect(_ssl) != 1) {
-        std::cerr << "SSL handshake failed\n";
+        std::cerr << "SSL handshake failed " << url << "\n";
         SSL_free(_ssl);
         close(_sockFd);
         SSL_CTX_free(_ctx);
@@ -126,9 +133,9 @@ GetSSL::~GetSSL() {
     SSL_CTX_free(_ctx);
 }
 
-std::string GetSSL::getHtml() {
+std::optional<std::string> GetSSL::getHtml() {
     if (!_valid) {
-        return "";
+        return std::nullopt;
     }
 
     // Create messag
@@ -148,7 +155,7 @@ std::string GetSSL::getHtml() {
         SSL_free(_ssl);
         close(_sockFd);
         SSL_CTX_free(_ctx);
-        return "";
+        return std::nullopt;
     }
 
     char buffer[10240];
@@ -179,7 +186,7 @@ std::vector<std::string> GetSSL::getRobots() {
     if (strlen(_parsedUrl.Path) > 0) {
         return {};
     }
-    std::string robotsUrl = _url+"/robots.txt";
+    std::string robotsUrl = _url + "/robots.txt";
     std::string request = std::string("GET /robots.txt") +
                           " HTTP/1.1\r\n"
                           "Host: " +
@@ -218,6 +225,5 @@ std::vector<std::string> GetSSL::getRobots() {
         buffer[bytesReceived] = '\0';
         response.append(buffer, bytesReceived);
     }
-    cout << response << endl;
     return {};
 }
