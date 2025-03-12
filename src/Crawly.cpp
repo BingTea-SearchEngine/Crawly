@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <memory>
+#include <pthread.h>
 
 #include "Crawly.hpp"
 #include "FrontierInterface.hpp"
@@ -11,40 +12,27 @@
 #include "Parser.hpp"
 #include "ThreadPool.hpp"
 
-#include <pthread.h>
 
 void writeParsedHtml(std::ofstream& outFile, std::string url, int pageNum,
                      Parser& htmlParser) {
     outFile << "URL: " << url << " Batch number: " << pageNum <<"\n";
-    outFile << "<!DOCTYPE html>\n" << "<html>\n";
-
     outFile << "<title>\n";
     for (auto w : htmlParser.getTitle())
         outFile << w << " ";
-    outFile << "\n</title>\n\n";
-
-    outFile << "<body "
-               "style=\"font-family:Verdana,Arial,Helvetica,sans-serif;"
-               "font-size:0.9em\">\n"
-            << "<h2>\n"
-            << "Body text\n"
-            << "</h2>\n";
-
-    outFile << "<p>\n";
+    outFile << "\n</title>\n";
+    outFile << "<words>\n";
     for (auto w : htmlParser.getWords())
         outFile << w << " ";
-    outFile << "\n<p>\n\n";
-
-    outFile << "<h2>\n" << "Links\n" << "</h2>\n";
+    outFile << "\n</words>\n";
+    outFile << "<links>\n";
     for (auto link : htmlParser.getUrls()) {
-        outFile << "<p>"
-                << "<a href=\"" << link.url << "\">" << link.url << "</a> ( \n";
+        outFile << "<link>\n";
+        outFile << link.url << "\n";
         for (auto w : link.anchorText)
             outFile << w << " ";
-        outFile << ")\n" << "</p>\n";
+        outFile << "\n</link>\n";
     }
-
-    outFile << "</body>\n" << "</html>\n";
+    outFile << "</links>\n";
 }
 
 void parseHtml(std::string url,
