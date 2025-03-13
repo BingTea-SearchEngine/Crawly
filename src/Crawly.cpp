@@ -71,8 +71,7 @@ void parseHtml(std::string url,
         std::replace(filename.begin(), filename.end(), '/', ';');
         std::ofstream outFile(outputDir + "/" + std::to_string(batchNum) + "-" + filename);
         if (!outFile) {
-            std::cerr << "Error opening outfile " << outputDir + "/" + url
-                      << std::endl;
+            spdlog::error("Error opening file {}", outputDir+"/"+std::to_string(batchNum)+"-"+filename);
             success->insert({url, false});
             return;
         }
@@ -224,7 +223,13 @@ int main(int argc, char** argv) {
 
     std::string socketPath = std::string(argv[1]);
     int numThreads = std::stoi(argv[2]);
-    std::string outputDir = PROJECT_ROOT + std::string(argv[3]);
+    std::string outputDir;
+    if (argv[3][0] == '/') {
+        outputDir = std::string(argv[3]);
+        std::cout << outputDir << std::endl;
+    } else {
+        outputDir = PROJECT_ROOT + std::string(argv[3]);
+    }
 
     Crawly crawly(socketPath, numThreads, outputDir);
     spdlog::info(crawly.getInfo());
