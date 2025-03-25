@@ -97,14 +97,13 @@ GetSSL::GetSSL(std::string url)
     }
 
     struct timeval timeout;
-    timeout.tv_sec = 15;
+    timeout.tv_sec = 5;
     timeout.tv_usec = 0;
     setsockopt(_sockFd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    setsockopt(_sockFd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
     // Connect the socket to the host address.
     if (connect(_sockFd, res->ai_addr, res->ai_addrlen) == -1) {
-        std::cerr << "Error connecting to server\n";
+        std::cerr << "GETSSL: Error connecting to" + url + "\n";
         close(_sockFd);
         freeaddrinfo(res);
         _valid = false;

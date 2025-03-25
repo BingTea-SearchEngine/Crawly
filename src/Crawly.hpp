@@ -10,24 +10,26 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <thread>
+#include <chrono>
 
+#include "FrontierInterface.hpp"
+#include "GetURL.hpp"
+#include "GetSSL.hpp"
+#include "Parser.hpp"
+#include "GatewayClient.cpp"
 #include "ThreadPool.hpp"
 
 class Crawly {
    public:
-    Crawly(std::string socketPath, int numThreads, std::string outputDir);
+    Crawly(std::string serverIp, int serverPort, int numThreads, std::string outputDir);
 
     ~Crawly();
-
-    std::string getInfo();
 
     void start();
 
    private:
-    const std::string _socketPath;
-
-    struct sockaddr_un _serverAddr;
-    int _clientSock;
+    Client _client;
 
     ThreadPool _threads;
 
@@ -37,7 +39,6 @@ class Crawly {
 
     int _numSuccessful = 0;
     int _numReceived = 0;
-    int _batchNum = 0;
 };
 
 // Parse the html at url and add the new urls to the newUrls while holding the mutex

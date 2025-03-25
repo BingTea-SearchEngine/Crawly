@@ -4,18 +4,13 @@
 #include <algorithm>
 #include <memory>
 #include <pthread.h>
+#include <argparse/argparse.hpp>
 
 #include "Crawly.hpp"
-#include "FrontierInterface.hpp"
-#include "GetURL.hpp"
-#include "GetSSL.hpp"
-#include "Parser.hpp"
-#include "ThreadPool.hpp"
-
 
 void writeParsedHtml(std::ofstream& outFile, std::string url, int pageNum,
                      Parser& htmlParser) {
-    outFile << "URL: " << url << " Batch number: " << pageNum <<"\n";
+    outFile << "URL: " << url << " Doc number: " << pageNum <<"\n";
     outFile << "<title>\n";
     for (auto w : htmlParser.getTitle())
         outFile << w << " ";
@@ -39,7 +34,7 @@ void parseHtml(std::string url,
                std::shared_ptr<std::vector<std::string>> newUrls,
                std::shared_ptr<std::vector<std::string>> robotsUrls,
                std::shared_ptr<std::unordered_map<std::string, bool>> success,
-               int batchNum, 
+               int urlNum, 
                pthread_mutex_t* m, std::string outputDir) {
     GetSSL sslConn(url);
     // Get the html as a string
@@ -65,26 +60,20 @@ void parseHtml(std::string url,
         return;
     }
     if (title.size() < 3 || (title[0] != "301" || title[1] != "Moved" || title[2] != "Permanently")) {
-        std::string filename = url;
-
-        // Replace url / with ; for filename
-        std::replace(filename.begin(), filename.end(), '/', ';');
-        std::ofstream outFile(outputDir + "/" + std::to_string(batchNum) + "-" + filename);
+        std::ofstream outFile(outputDir + "/" + std::to_string(urlNum) + ".parsed");
         if (!outFile) {
-            spdlog::error("Error opening file {}", outputDir+"/"+std::to_string(batchNum)+"-"+filename);
+            spdlog::error("Error opening file {}", outputDir+"/"+std::to_string(urlNum) + ".parsed");
             success->insert({url, false});
             return;
         }
-        writeParsedHtml(outFile, url, batchNum, htmlParser);
+        writeParsedHtml(outFile, url, urlNum, htmlParser);
         outFile.close();
     }
 
     pthread_mutex_lock(m);
     // robotsUrls->push_back(temp);
     for (auto newUrl : htmlParser.getUrls()) {
-        if (newUrl.url[0] == '/') {
-            newUrl.url = url + newUrl.url;
-        } else if (newUrl.url.compare(0, 4, "http") != 0) {
+        if (newUrl.url.compare(0, 5, "https") != 0 || newUrl.url.size() > 30) {
             continue;
         }
         newUrls->push_back(newUrl.url);
@@ -93,76 +82,55 @@ void parseHtml(std::string url,
     success->insert({url, true});
 }
 
-Crawly::Crawly(std::string socketPath, int numThreads, std::string outputDir)
-    : _socketPath(socketPath),
+Crawly::Crawly(std::string serverIp, int serverPort, int numThreads, std::string outputDir) : 
+    _client(Client(serverIp, serverPort)),
       _threads(ThreadPool(numThreads)),
       _outputDir(outputDir) {
-    _clientSock = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (_clientSock < 0) {
-        spdlog::error("Error creating socket");
-        exit(EXIT_FAILURE);
+    _logFile.open(outputDir + "/logs.txt");
+    if (!_logFile) {
+        spdlog::error("Error opening logfile");
+        return;
     }
-
-    // Set up the server address structure
-    _serverAddr.sun_family = AF_UNIX;
-    strncpy(_serverAddr.sun_path, _socketPath.c_str(),
-            sizeof(_serverAddr.sun_path) - 1);
-
-    // Connect to the server
-    if (connect(_clientSock, (struct sockaddr*)&_serverAddr,
-                sizeof(_serverAddr)) < 0) {
-        spdlog::error("Connect failed");
-        exit(EXIT_FAILURE);
-    }
-
-    _logFile.open(outputDir + "/logs");
     _logFile << "Error urls\n";
 }
 
 Crawly::~Crawly() {
     spdlog::info("{} successful out of {} received", _numSuccessful, _numReceived);
-    close(_clientSock);
     _logFile.flush();
     _logFile.close();
 }
 
-std::string Crawly::getInfo() {
-    return "Communicating on " + _socketPath;
-}
 
 void Crawly::start() {
     // Send message to get inital set of urls
     spdlog::info("Sent initial message");
-    uint32_t messageLen = 0;
-    send(_clientSock, &messageLen, sizeof(messageLen), 0);
-    uint32_t responseLen = 1;
+    FrontierMessage initMessage{FrontierMessageType::START, {}};
+    _client.SendMessage(FrontierInterface::Encode(initMessage));
 
-    while (responseLen != 0) {
-        int bytes_received =
-            recv(_clientSock, &responseLen, sizeof(responseLen), 0);
-        responseLen = ntohl(responseLen);
-        std::string response(responseLen, '\0');
-        recv(_clientSock, response.data(), responseLen, 0);
-
-        if (responseLen == 0)
+    while (true) {
+        std::optional<Message> response = _client.GetMessageBlocking();
+        if (!response) {
+            spdlog::info("Error contacting frontier");
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            _client.SendMessage(FrontierInterface::Encode(initMessage));
+            continue;
+        }
+        FrontierMessage decoded = FrontierInterface::Decode(response->msg);
+        if (decoded.type == FrontierMessageType::END) {
             break;
-        auto [type, urls] = FrontierInterface::Decode(response);
-        assert(type != MessageType::ROBOTS);
-        // std::vector<std::string> newUrls;
+        }
+
+        // Set up for sending tasks to worker threads
         auto newUrls = std::make_shared<std::vector<std::string>>();
         auto robotsUrls = std::make_shared<std::vector<std::string>>();
-        spdlog::info("Received {}", urls);
         pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
         auto success =
             std::make_shared<std::unordered_map<std::string, bool>>();
-        _numReceived+=urls.size();
-        _batchNum++;
-
-        for (auto url : urls) {
+        for (auto url : decoded.urls) {
             _threads.queue(
-                Task(parseHtml, url, newUrls, robotsUrls, success, _batchNum, &mutex, _outputDir));
+                Task(parseHtml, url, newUrls, robotsUrls, success, _numReceived, &mutex, _outputDir));
+            ++_numReceived;
         }
-
         _threads.wait();
 
         for (auto [url, success] : *success) {
@@ -174,65 +142,53 @@ void Crawly::start() {
             }
         }
 
-        if (robotsUrls->size() > 0) {
-            // Send robots.txt
-            // spdlog::info("Sending robots {}", *robotsUrls);
-            std::string robotsEncoded = FrontierInterface::Encode(
-                Message{MessageType::ROBOTS, *robotsUrls});
-            messageLen = htonl(robotsEncoded.size());
-            send(_clientSock, &messageLen, sizeof(messageLen), 0);
-            send(_clientSock, robotsEncoded.data(), robotsEncoded.size(), 0);
-        }
-
-        // Send URLS
-        // spdlog::info("Sending urls {}", *newUrls);
-        std::string encoded =
-            FrontierInterface::Encode(Message{MessageType::URLS, *newUrls});
-        messageLen = htonl(encoded.size());
-        if (send(_clientSock, &messageLen, sizeof(messageLen), 0) <= 0) {
-            spdlog::error("Error sending message length");
-            return;
-        }
-        if (send(_clientSock, encoded.data(), encoded.size(), 0) <= 0) {
-            spdlog::error("Error sending message");
-            return;
-        }
+        _client.SendMessage(FrontierInterface::Encode(FrontierMessage{FrontierMessageType::URLS, *newUrls}));
+        _logFile.flush();
     }
-
-    // Exiting
-    _threads.wait();
-}
-
-void printUsage(const char* programName) {
-    std::cerr << "Usage: " << programName
-              << " <socketPath> <numThreads> <outputDir>\n"
-              << "  <socketPath>   : Path to the Unix domain socket\n"
-              << "  <numThreads>   : Maximum number of concurrent threads "
-                 "running parser\n"
-              << "  <outputDir>   : Directory to write output to\n";
 }
 
 int main(int argc, char** argv) {
-    spdlog::info("======= Crawly Started =======");
+    argparse::ArgumentParser program("crawly");
+    program.add_argument("-a", "--ip")
+        .help("IP address of the server");
+
+    program.add_argument("-p", "--serverport")
+        .required()
+        .help("Port server is running on")
+        .scan<'i', int>();
+
+    const char* homeDir = std::getenv("HOME");
+    std::string dir = std::string(homeDir) + "/index/input";
+    program.add_argument("-o", "--output")
+        .default_value(dir)
+        .help("Output directory");
+
+    program.add_argument("-t", "--threads")
+        .default_value(4)
+        .help("Port server is running on")
+        .scan<'i', int>();
+
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::exception& err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << program;
+        std::exit(1);
+    }
     signal(SIGPIPE, SIG_IGN);
 
-    if (argc != 4) {
-        spdlog::error("Error: Invalid number of arguments");
-        printUsage(argv[0]);
-    }
+    std::string serverIp = program.get<std::string>("-a");
+    int serverPort = program.get<int>("-p");
+    std::string outputDir = program.get<std::string>("-o");
+    int numThreads = program.get<int>("-t");
 
-    std::string socketPath = std::string(argv[1]);
-    int numThreads = std::stoi(argv[2]);
-    std::string outputDir;
-    if (argv[3][0] == '/') {
-        outputDir = std::string(argv[3]);
-        std::cout << outputDir << std::endl;
-    } else {
-        outputDir = PROJECT_ROOT + std::string(argv[3]);
-    }
+    spdlog::info("Server IP {}", serverIp);
+    spdlog::info("Server port {}", serverPort);
+    spdlog::info("Thread count {}", numThreads);
+    spdlog::info("Output directory {}", outputDir);
 
-    Crawly crawly(socketPath, numThreads, outputDir);
-    spdlog::info(crawly.getInfo());
+    Crawly crawly(serverIp, serverPort, numThreads, outputDir);
 
+    spdlog::info("======= Crawly Started =======");
     crawly.start();
 }

@@ -23,11 +23,21 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(spdlog)
 
 
-FetchContent_Declare(
-    Frontier
-    GIT_REPOSITORY https://github.com/BingTea-SearchEngine/Frontier.git
-    GIT_TAG bloom-integration
-)
+set(FRONTIER_LOCAL_DIR "" CACHE PATH "Use local version of Frontier")
+if(FRONTIER_LOCAL_DIR)
+    message(STATUS "Using local Frontier from ${FRONTIER_LOCAL_DIR}")
+    FetchContent_Declare(
+        Frontier
+        SOURCE_DIR ${FRONTIER_LOCAL_DIR}
+    )
+else()
+    message(STATUS "Cloning Frontier from GitHub")
+    FetchContent_Declare(
+        Frontier
+        GIT_REPOSITORY https://github.com/BingTea-SearchEngine/Frontier.git
+        GIT_TAG wbjin-dev
+    )
+endif()
 FetchContent_MakeAvailable(Frontier)
 
 FetchContent_Declare(
@@ -43,6 +53,19 @@ FetchContent_Declare(
     GIT_TAG main
 )
 FetchContent_MakeAvailable(HtmlParser)
+
+FetchContent_Declare(
+    Gateway
+    GIT_REPOSITORY https://github.com/BingTea-SearchEngine/Gateway.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(Gateway)
+
+FetchContent_Declare(
+    argparse
+    GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+)
+FetchContent_MakeAvailable(argparse)
 
 set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib")
 
@@ -71,13 +94,18 @@ set(PARSER_INCLUDE_DIR "${htmlparser_SOURCE_DIR}/lib")
 message(STATUS "HTML Parser project source directory: ${PARSER_SOURCE_DIR}")
 message(STATUS "HTML PARSER include directory: ${PARSER_INCLUDE_DIR}")
 
+set(GATEWAY_SOURCE_DIR ${gateway_SOURCE_DIR})
+set(GATEWAY_INCLUDE_DIR "${gateway_SOURCE_DIR}/lib")
+message(STATUS "Gateway project source directory: ${GATEWAY_SOURCE_DIR}")
+message(STATUS "Gateway include directory: ${GATEWAY_INCLUDE_DIR}")
+
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 add_definitions(-DPROJECT_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
 add_executable(${THIS} ${SRC_DIR}/Crawly.cpp)
 target_link_libraries(${THIS} PUBLIC spdlog::spdlog FrontierInterface Hive pthread GetSSL
-    HtmlParser GetURL)
+    HtmlParser GetURL GatewayClient argparse)
 target_include_directories(${THIS} PRIVATE ${FRONTIER_INTERFACE_INCLUDE_DIR} ${HIVE_INCLUDE_DIR}
-    ${LIB_DIR}/GetSSL ${LIB_DIR}/GetURL ${PARSER_INCLUDE_DIR})
+    ${LIB_DIR}/GetSSL ${LIB_DIR}/GetURL ${PARSER_INCLUDE_DIR} ${GATEWAY_INCLUDE_DIR})
 
 # Specify build type
 set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type")
