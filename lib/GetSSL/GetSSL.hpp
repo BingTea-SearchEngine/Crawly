@@ -3,6 +3,7 @@
 #include <openssl/ssl.h>
 #include <optional>
 #include <string>
+#include <vector>
 
 class ParsedUrl {
    public:
