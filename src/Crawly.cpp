@@ -36,17 +36,14 @@ void parseHtml(std::string url,
                std::shared_ptr<std::unordered_map<std::string, bool>> success,
                int urlNum, 
                pthread_mutex_t* m, std::string outputDir) {
-    GetSSL sslConn(url);
+    GetCURL& curlConn = GetCURL::getInstance();
+    // GetSSL sslConn(url);
     // Get the html as a string
-    std::optional<std::string> html = sslConn.getHtml();
+    // std::optional<std::string> html = sslConn.getHtml();
+    std::optional<std::string> html = curlConn.getHtml(url);
     if (!html) {
-        // Try again with http
-        GetURL conn(url);
-        html = conn.getHtml();
-        if (!html) {
-            success->insert({url, false});
-            return;
-        }
+        success->insert({url, false});
+        return;
     }
     Parser htmlParser(*html);
     // std::vector<std::string> robotsTxt = conn.getRobots();
@@ -55,20 +52,15 @@ void parseHtml(std::string url,
         success->insert({url, false});
         return;
     }
-    if (title.size() == 2 && title[0] == "Not" && title[1] == "Found") {
+
+    std::ofstream outFile(outputDir + "/" + std::to_string(urlNum) + ".parsed");
+    if (!outFile) {
+        spdlog::error("Error opening file {}", outputDir+"/"+std::to_string(urlNum) + ".parsed");
         success->insert({url, false});
         return;
     }
-    if (title.size() < 3 || (title[0] != "301" || title[1] != "Moved" || title[2] != "Permanently")) {
-        std::ofstream outFile(outputDir + "/" + std::to_string(urlNum) + ".parsed");
-        if (!outFile) {
-            spdlog::error("Error opening file {}", outputDir+"/"+std::to_string(urlNum) + ".parsed");
-            success->insert({url, false});
-            return;
-        }
-        writeParsedHtml(outFile, url, urlNum, htmlParser);
-        outFile.close();
-    }
+    writeParsedHtml(outFile, url, urlNum, htmlParser);
+    outFile.close();
 
     pthread_mutex_lock(m);
     // robotsUrls->push_back(temp);
@@ -84,8 +76,8 @@ void parseHtml(std::string url,
 
 Crawly::Crawly(std::string serverIp, int serverPort, int numThreads, std::string outputDir) : 
     _client(Client(serverIp, serverPort)),
-      _threads(ThreadPool(numThreads)),
-      _outputDir(outputDir) {
+    _threads(ThreadPool(numThreads)),
+    _outputDir(outputDir) {
     _logFile.open(outputDir + "/logs.txt");
     if (!_logFile) {
         spdlog::error("Error opening logfile");
@@ -138,6 +130,7 @@ void Crawly::start() {
                 spdlog::error("Error getting {}", url);
                 _logFile << url << "\n";
             } else {
+                spdlog::info("Success getting {}", url);
                 _numSuccessful++;
             }
         }

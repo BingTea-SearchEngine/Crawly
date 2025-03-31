@@ -16,6 +16,7 @@
 #include "FrontierInterface.hpp"
 #include "GetURL.hpp"
 #include "GetSSL.hpp"
+#include "GetCURL.hpp"
 #include "Parser.hpp"
 #include "GatewayClient.cpp"
 #include "ThreadPool.hpp"

@@ -67,17 +67,23 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
+
 set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib")
 
+find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
 
 add_library(GetSSL STATIC ${LIB_DIR}/GetSSL/GetSSL.cpp)
-target_include_directories(GetSSL PRIVATE ${LIB_DIR}/GetSSL ${OPENSSL_INCLUDE_DIR})
+target_include_directories(GetSSL PUBLIC ${LIB_DIR}/GetSSL ${OPENSSL_INCLUDE_DIR})
 target_link_libraries(GetSSL INTERFACE OpenSSL::SSL OpenSSL::Crypto)
 
 add_library(GetURL STATIC ${LIB_DIR}/GetURL/GetURL.cpp)
-target_include_directories(GetURL PRIVATE ${LIB_DIR}/GetURL ${LIB_DIR}/GetSSL)
+target_include_directories(GetURL PUBLIC ${LIB_DIR}/GetURL ${LIB_DIR}/GetSSL)
 target_link_libraries(GetURL PRIVATE GetSSL)
+
+add_library(GetCURL STATIC ${LIB_DIR}/GetCURL/GetCURL.cpp)
+target_include_directories(GetCURL PUBLIC ${LIB_DIR}/GetCURL)
+target_link_libraries(GetCURL PUBLIC CURL::libcurl)
 
 set(FRONTIER_SOURCE_DIR ${frontier_SOURCE_DIR})
 set(FRONTIER_INTERFACE_INCLUDE_DIR "${frontier_SOURCE_DIR}/lib/FrontierInterface")
@@ -103,9 +109,9 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 add_definitions(-DPROJECT_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
 add_executable(${THIS} ${SRC_DIR}/Crawly.cpp)
 target_link_libraries(${THIS} PUBLIC spdlog::spdlog FrontierInterface Hive pthread GetSSL
-    HtmlParser GetURL GatewayClient argparse)
+    HtmlParser GetURL GatewayClient argparse GetCURL)
 target_include_directories(${THIS} PRIVATE ${FRONTIER_INTERFACE_INCLUDE_DIR} ${HIVE_INCLUDE_DIR}
-    ${LIB_DIR}/GetSSL ${LIB_DIR}/GetURL ${PARSER_INCLUDE_DIR} ${GATEWAY_INCLUDE_DIR})
+    ${PARSER_INCLUDE_DIR} ${GATEWAY_INCLUDE_DIR})
 
 # Specify build type
 set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type")

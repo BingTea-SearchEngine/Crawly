@@ -26,8 +26,6 @@ class GetSSL {
 
     std::optional<std::string> getHtml();
 
-    std::string getFilename();
-
     std::vector<std::string> getRobots();
 
    private:
