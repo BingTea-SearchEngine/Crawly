@@ -35,7 +35,7 @@ void parseHtml(std::string url,
                std::shared_ptr<std::vector<std::string>> robotsUrls,
                std::shared_ptr<std::unordered_map<std::string, bool>> success,
                int urlNum, 
-               pthread_mutex_t* m, std::string outputDir) {
+               std::mutex* m, std::string outputDir) {
     GetCURL& curlConn = GetCURL::getInstance();
     // GetSSL sslConn(url);
     // Get the html as a string
@@ -62,7 +62,8 @@ void parseHtml(std::string url,
     writeParsedHtml(outFile, url, urlNum, htmlParser);
     outFile.close();
 
-    pthread_mutex_lock(m);
+    m->lock();
+    // pthread_mutex_lock(m);
     // robotsUrls->push_back(temp);
     for (auto newUrl : htmlParser.getUrls()) {
         if (newUrl.url.compare(0, 5, "https") != 0 || newUrl.url.size() > 30) {
@@ -70,13 +71,14 @@ void parseHtml(std::string url,
         }
         newUrls->push_back(newUrl.url);
     }
-    pthread_mutex_unlock(m);
+    // pthread_mutex_unlock(m);
+    m->unlock();
     success->insert({url, true});
 }
 
 Crawly::Crawly(std::string serverIp, int serverPort, int numThreads, std::string outputDir) : 
     _client(Client(serverIp, serverPort)),
-    _threads(ThreadPool(numThreads)),
+    // _threads(ThreadPool(numThreads)),
     _outputDir(outputDir) {
     _logFile.open(outputDir + "/logs.txt");
     if (!_logFile) {
@@ -115,15 +117,23 @@ void Crawly::start() {
         // Set up for sending tasks to worker threads
         auto newUrls = std::make_shared<std::vector<std::string>>();
         auto robotsUrls = std::make_shared<std::vector<std::string>>();
-        pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+        // pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
         auto success =
             std::make_shared<std::unordered_map<std::string, bool>>();
+        std::mutex m;
+        std::vector<std::thread> threads;
         for (auto url : decoded.urls) {
-            _threads.queue(
-                Task(parseHtml, url, newUrls, robotsUrls, success, _numReceived, &mutex, _outputDir));
+            // _threads.queue(
+            //     Task(parseHtml, url, newUrls, robotsUrls, success, _numReceived, &mutex, _outputDir));
+            threads.emplace_back(parseHtml, url, newUrls, robotsUrls, success, _numReceived, &m, _outputDir);
             ++_numReceived;
         }
-        _threads.wait();
+        // _threads.wait();
+        for (auto& t : threads) {
+            if (t.joinable()) {
+                t.join();
+            }
+        }
 
         for (auto [url, success] : *success) {
             if (!success) {

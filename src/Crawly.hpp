@@ -32,7 +32,7 @@ class Crawly {
    private:
     Client _client;
 
-    ThreadPool _threads;
+    // ThreadPool _threads;
 
     std::string _outputDir;
 
@@ -48,4 +48,4 @@ void parseHtml(std::string url,
                std::shared_ptr<std::vector<std::string>> robotsUrls,
                std::shared_ptr<std::unordered_map<std::string, bool>> success,
                int pageNum,
-               pthread_mutex_t* m, std::string outputDir);
+               std::mutex* m, std::string outputDir);

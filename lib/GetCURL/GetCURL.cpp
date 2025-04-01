@@ -30,7 +30,7 @@ std::optional<std::string> GetCURL::getHtml(std::string url) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L); // 10 seconds
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L); // 10 seconds
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
     
