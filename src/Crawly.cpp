@@ -76,10 +76,11 @@ void parseHtml(std::string url,
     success->insert({url, true});
 }
 
-Crawly::Crawly(std::string serverIp, int serverPort, int numThreads, std::string outputDir) : 
+Crawly::Crawly(std::string serverIp, int serverPort, std::string outputDir, int startDocNum) : 
     _client(Client(serverIp, serverPort)),
     // _threads(ThreadPool(numThreads)),
-    _outputDir(outputDir) {
+    _outputDir(outputDir),
+    _docNum(startDocNum) {
     _logFile.open(outputDir + "/logs.txt");
     if (!_logFile) {
         spdlog::error("Error opening logfile");
@@ -90,6 +91,7 @@ Crawly::Crawly(std::string serverIp, int serverPort, int numThreads, std::string
 
 Crawly::~Crawly() {
     spdlog::info("{} successful out of {} received", _numSuccessful, _numReceived);
+    spdlog::info("Left off at {}", _docNum);
     _logFile.flush();
     _logFile.close();
 }
@@ -125,7 +127,8 @@ void Crawly::start() {
         for (auto url : decoded.urls) {
             // _threads.queue(
             //     Task(parseHtml, url, newUrls, robotsUrls, success, _numReceived, &mutex, _outputDir));
-            threads.emplace_back(parseHtml, url, newUrls, robotsUrls, success, _numReceived, &m, _outputDir);
+            threads.emplace_back(parseHtml, url, newUrls, robotsUrls, success, _docNum, &m, _outputDir);
+            _docNum++;
             ++_numReceived;
         }
         // _threads.wait();
@@ -166,9 +169,8 @@ int main(int argc, char** argv) {
         .default_value(dir)
         .help("Output directory");
 
-    program.add_argument("-t", "--threads")
-        .default_value(4)
-        .help("Port server is running on")
+    program.add_argument("-s", "--startdocnum")
+        .default_value(0)
         .scan<'i', int>();
 
     try {
@@ -183,14 +185,14 @@ int main(int argc, char** argv) {
     std::string serverIp = program.get<std::string>("-a");
     int serverPort = program.get<int>("-p");
     std::string outputDir = program.get<std::string>("-o");
-    int numThreads = program.get<int>("-t");
+    int startDocumentNum = program.get<int>("-s");
 
     spdlog::info("Server IP {}", serverIp);
     spdlog::info("Server port {}", serverPort);
-    spdlog::info("Thread count {}", numThreads);
     spdlog::info("Output directory {}", outputDir);
+    spdlog::info("Start url number {}", startDocumentNum);
 
-    Crawly crawly(serverIp, serverPort, numThreads, outputDir);
+    Crawly crawly(serverIp, serverPort, outputDir, startDocumentNum);
 
     spdlog::info("======= Crawly Started =======");
     crawly.start();

@@ -23,7 +23,7 @@
 
 class Crawly {
    public:
-    Crawly(std::string serverIp, int serverPort, int numThreads, std::string outputDir);
+    Crawly(std::string serverIp, int serverPort, std::string outputDir, int startUrlNum);
 
     ~Crawly();
 
@@ -40,6 +40,7 @@ class Crawly {
 
     int _numSuccessful = 0;
     int _numReceived = 0;
+    int _docNum = 0;
 };
 
 // Parse the html at url and add the new urls to the newUrls while holding the mutex
