@@ -21,11 +21,10 @@ void writeParsedHtml(std::ofstream& outFile, std::string url, int pageNum,
     outFile << "\n</words>\n";
     outFile << "<links>\n";
     for (auto link : htmlParser.getUrls()) {
-        outFile << "<link>\n";
+        if (link.url.compare(0, 5, "https") != 0 || link.url.size() > 30) {
+            continue;
+        }
         outFile << link.url << "\n";
-        for (auto w : link.anchorText)
-            outFile << w << " ";
-        outFile << "\n</link>\n";
     }
     outFile << "</links>\n";
 }
