@@ -35,10 +35,12 @@ else()
     FetchContent_Declare(
         Frontier
         GIT_REPOSITORY https://github.com/BingTea-SearchEngine/Frontier.git
-        GIT_TAG main
+        GIT_TAG wbjin-dev
+        CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
     )
 endif()
 FetchContent_MakeAvailable(Frontier)
+message(STATUS "Frontier build type: ${CMAKE_BUILD_TYPE}")
 
 FetchContent_Declare(
     Hive
@@ -113,5 +115,3 @@ target_link_libraries(${THIS} PUBLIC spdlog::spdlog FrontierInterface Hive pthre
 target_include_directories(${THIS} PRIVATE ${FRONTIER_INTERFACE_INCLUDE_DIR} ${HIVE_INCLUDE_DIR}
     ${PARSER_INCLUDE_DIR} ${GATEWAY_INCLUDE_DIR})
 
-# Specify build type
-set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type")
