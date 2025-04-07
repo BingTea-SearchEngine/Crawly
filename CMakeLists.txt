@@ -35,7 +35,7 @@ else()
     FetchContent_Declare(
         Frontier
         GIT_REPOSITORY https://github.com/BingTea-SearchEngine/Frontier.git
-        GIT_TAG wbjin-dev
+        GIT_TAG main
     )
 endif()
 FetchContent_MakeAvailable(Frontier)

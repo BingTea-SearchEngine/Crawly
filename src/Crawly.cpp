@@ -45,6 +45,11 @@ void parseHtml(std::string url,
         return;
     }
     Parser htmlParser(*html);
+    std::string lang = htmlParser.getLanguage();
+    if (lang != "en" && lang != "en-us" && lang != "en-US" && lang != "en-Us") {
+        success->insert({url, false});
+        return;
+    }
     // std::vector<std::string> robotsTxt = conn.getRobots();
     std::vector<std::string> title = htmlParser.getTitle();
     if (title.size() == 0) {
