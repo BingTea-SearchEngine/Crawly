@@ -8,6 +8,15 @@
 
 #include "Crawly.hpp"
 
+bool isEnglish(const std::string& text) {
+    for (unsigned char c : text) {
+        if (c > 127) {
+            return false; // Non-ASCII character detected
+        }
+    }
+    return true;
+}
+
 void writeParsedHtml(std::ofstream& outFile, std::string url, int pageNum,
                      Parser& htmlParser) {
     outFile << "URL: " << url << " Doc number: " << pageNum <<"\n";
@@ -56,6 +65,11 @@ void parseHtml(std::string url,
         success->insert({url, false});
         return;
     }
+    if (!isEnglish(title[0])) {
+        success->insert({url, false});
+        return;
+    }
+    spdlog::info(title);
 
     std::ofstream outFile(outputDir + "/" + std::to_string(urlNum) + ".parsed");
     if (!outFile) {
