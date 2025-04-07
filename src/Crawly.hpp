@@ -48,5 +48,6 @@ void parseHtml(std::string url,
                std::shared_ptr<std::vector<std::string>> newUrls,
                std::shared_ptr<std::vector<std::string>> robotsUrls,
                std::shared_ptr<std::unordered_map<std::string, bool>> success,
+               std::shared_ptr<std::unordered_map<std::string, bool>> tryAgain,
                int pageNum,
                std::mutex* m, std::string outputDir);

@@ -42,6 +42,7 @@ void parseHtml(std::string url,
                std::shared_ptr<std::vector<std::string>> newUrls,
                std::shared_ptr<std::vector<std::string>> robotsUrls,
                std::shared_ptr<std::unordered_map<std::string, bool>> success,
+               std::shared_ptr<std::unordered_map<std::string, bool>> tryAgain,
                int urlNum, 
                std::mutex* m, std::string outputDir) {
     GetCURL& curlConn = GetCURL::getInstance();
@@ -50,6 +51,7 @@ void parseHtml(std::string url,
     // std::optional<std::string> html = sslConn.getHtml();
     std::optional<std::string> html = curlConn.getHtml(url);
     if (!html) {
+        tryAgain->insert({url, true});
         success->insert({url, false});
         return;
     }
@@ -69,7 +71,6 @@ void parseHtml(std::string url,
         success->insert({url, false});
         return;
     }
-    spdlog::info(title);
 
     std::ofstream outFile(outputDir + "/" + std::to_string(urlNum) + ".parsed");
     if (!outFile) {
@@ -125,7 +126,7 @@ void Crawly::start() {
         std::optional<Message> response = _client.GetMessageBlocking();
         if (!response) {
             spdlog::info("Error contacting frontier");
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::seconds(5));
             _client.SendMessage(FrontierInterface::Encode(initMessage));
             continue;
         }
@@ -140,12 +141,13 @@ void Crawly::start() {
         // pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
         auto success =
             std::make_shared<std::unordered_map<std::string, bool>>();
+        auto tryAgain = std::make_shared<std::unordered_map<std::string, bool>>();
         std::mutex m;
         std::vector<std::thread> threads;
         for (auto url : decoded.urls) {
             // _threads.queue(
             //     Task(parseHtml, url, newUrls, robotsUrls, success, _numReceived, &mutex, _outputDir));
-            threads.emplace_back(parseHtml, url, newUrls, robotsUrls, success, _docNum, &m, _outputDir);
+            threads.emplace_back(parseHtml, url, newUrls, robotsUrls, success, tryAgain, _docNum, &m, _outputDir);
             _docNum++;
             ++_numReceived;
         }
@@ -166,7 +168,14 @@ void Crawly::start() {
             }
         }
 
-        _client.SendMessage(FrontierInterface::Encode(FrontierMessage{FrontierMessageType::URLS, *newUrls}));
+        std::vector<std::string> failed;
+        for (auto [url, again] : *tryAgain) {
+            if (again) {
+                failed.push_back(url);
+            }
+        }
+
+        _client.SendMessage(FrontierInterface::Encode(FrontierMessage{FrontierMessageType::URLS, *newUrls, failed}));
         _logFile.flush();
     }
 }
