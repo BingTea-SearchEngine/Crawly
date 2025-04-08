@@ -138,6 +138,7 @@ void Crawly::start() {
                     std::this_thread::sleep_for(std::chrono::seconds(10));
                 }
             }
+            spdlog::info("Connected to frontier, sending init messsage");
             _client.SendMessage(FrontierInterface::Encode(initMessage));
             continue;
         }
