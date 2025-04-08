@@ -17,7 +17,6 @@ echo -e "🔍 Monitoring process '$PROCESS_NAME' every 60 seconds..."
 while true; do
     # Get number of input files and add 1
     NUM_FILES=$(find ~/index/input -type f | wc -l)
-    ARG=$((NUM_FILES + 1))
     echo -e "📂 ${CYAN_BOLD}Number of input files: $NUM_FILES${RESET}"
 
     # Show disk usage in yellow
@@ -27,6 +26,16 @@ while true; do
     if pgrep -x "$PROCESS_NAME" > /dev/null; then
         echo "$(date): ✅ Process '$PROCESS_NAME' is running."
     else
+        MAX_NUM=$(find ~/index/input -type f -name "*.parsed" \
+            | sed -E 's|.*/([0-9]+)\.parsed$|\1|' \
+            | sort -n | tail -n 1)
+
+        # If no files matched, default to 0
+        if [[ -z "$MAX_NUM" ]]; then
+            ARG=1
+        else
+            ARG=$((MAX_NUM + 1))
+        fi
         echo "$(date): ❌ Process '$PROCESS_NAME' is NOT running."
         echo "🔄 Restarting '$PROCESS_NAME' with argument $ARG..."
 
