@@ -35,6 +35,7 @@ std::optional<std::string> GetCURL::getHtml(std::string url) {
     curl_easy_setopt(curl, CURLOPT_COOKIEFILE, "");   // start cookie engine
     curl_easy_setopt(curl, CURLOPT_COOKIEJAR, "cookies.txt"); // save cookies
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+    curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 1L);
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
