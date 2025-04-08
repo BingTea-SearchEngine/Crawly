@@ -25,7 +25,7 @@ while true; do
         echo "$(date): ❌ Process '$PROCESS_NAME' is NOT running."
         echo "🔄 Restarting '$PROCESS_NAME' with argument $ARG..."
 
-        nohup ./build/Crawly -a $FRONTIER_IP -p $FRONTIER_PORT -o /Users/wonbinjin/index/input -s $ARG > log.txt &
+        nohup ./build/Crawly -a $FRONTIER_IP -p $FRONTIER_PORT -o /Users/wonbinjin/index/input -s $ARG > ~/CrawlerLog.txt &
     fi
 
     sleep 60
