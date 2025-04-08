@@ -51,7 +51,7 @@ void parseHtml(std::string url,
     // std::optional<std::string> html = sslConn.getHtml();
     std::optional<std::string> html = curlConn.getHtml(url);
     if (!html) {
-        tryAgain->insert({url, true});
+        // tryAgain->insert({url, true});
         success->insert({url, false});
         return;
     }
@@ -158,25 +158,28 @@ void Crawly::start() {
             }
         }
 
+        int batchSuccessCount = 0;
         for (auto [url, success] : *success) {
             if (!success) {
                 spdlog::error("Error getting {}", url);
                 _logFile << url << "\n";
             } else {
-                spdlog::info("Success getting {}", url);
+                batchSuccessCount++;
                 _numSuccessful++;
             }
         }
 
         std::vector<std::string> failed;
-        for (auto [url, again] : *tryAgain) {
-            if (again) {
-                failed.push_back(url);
-            }
-        }
+        // for (auto [url, again] : *tryAgain) {
+        //     if (again) {
+        //         failed.push_back(url);
+        //     }
+        // }
 
         _client.SendMessage(FrontierInterface::Encode(FrontierMessage{FrontierMessageType::URLS, *newUrls, failed}));
         _logFile.flush();
+
+        spdlog::info("Batch success rate {}/{}", batchSuccessCount, decoded.urls.size());
     }
 }
 
