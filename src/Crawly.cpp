@@ -136,6 +136,7 @@ void Crawly::start() {
                 } catch (const std::runtime_error& e) {
                     spdlog::error("Failed to connect to frontier, trying again in 10 seconds");
                     std::this_thread::sleep_for(std::chrono::seconds(10));
+                    exit(1);
                 }
             }
             spdlog::info("Connected to frontier, sending init messsage");
