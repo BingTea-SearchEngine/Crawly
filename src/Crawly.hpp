@@ -33,6 +33,9 @@ class Crawly {
     Client _client;
 
     // ThreadPool _threads;
+    //
+    std::string _frontierIp;
+    int _frontierPort;
 
     std::string _outputDir;
 

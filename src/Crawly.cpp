@@ -98,6 +98,8 @@ void parseHtml(std::string url,
 Crawly::Crawly(std::string serverIp, int serverPort, std::string outputDir, int startDocNum) : 
     _client(Client(serverIp, serverPort)),
     // _threads(ThreadPool(numThreads)),
+    _frontierIp(serverIp),
+    _frontierPort(serverPort),
     _outputDir(outputDir),
     _docNum(startDocNum) {
     _logFile.open(outputDir + "/logs.txt");
@@ -126,7 +128,16 @@ void Crawly::start() {
         std::optional<Message> response = _client.GetMessageBlocking();
         if (!response) {
             spdlog::info("Error contacting frontier");
-            std::this_thread::sleep_for(std::chrono::seconds(5));
+            while (true) {
+                try {
+                    spdlog::info("Trying to connect to frontier");
+                    _client = Client(_frontierIp, _frontierPort);
+                    break;
+                } catch (const std::runtime_error& e) {
+                    spdlog::error("Failed to connect to frontier, trying again in 10 seconds");
+                    std::this_thread::sleep_for(std::chrono::seconds(10));
+                }
+            }
             _client.SendMessage(FrontierInterface::Encode(initMessage));
             continue;
         }
