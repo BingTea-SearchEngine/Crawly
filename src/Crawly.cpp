@@ -119,7 +119,7 @@ Crawly::~Crawly() {
 void Crawly::start() {
     // Send message to get inital set of urls
     spdlog::info("Sent initial message");
-    FrontierMessage initMessage{FrontierMessageType::START, {}};
+    FrontierMessage initMessage{FrontierMessageType::START, {}, {}};
     _client.SendMessage(FrontierInterface::Encode(initMessage));
 
     while (true) {
