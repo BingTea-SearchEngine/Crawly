@@ -31,8 +31,17 @@ std::optional<std::string> GetCURL::getHtml(std::string url) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L); // 10 seconds
-    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+    curl_easy_setopt(curl, CURLOPT_COOKIEFILE, "");   // start cookie engine
+    curl_easy_setopt(curl, CURLOPT_COOKIEJAR, "cookies.txt"); // save cookies
+    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+    headers = curl_slist_append(headers, "Referer: https://www.google.com/");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+
     
     CURLcode res = curl_easy_perform(curl);
 
