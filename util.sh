@@ -14,6 +14,9 @@ RESET="\033[0m"
 
 echo -e "🔍 Monitoring process '$PROCESS_NAME' every 60 seconds..."
 
+PREV_NUM_FILES=-1
+SAME_COUNT=0
+
 while true; do
     # Get number of input files and add 1
     NUM_FILES=$(find ~/index/input -type f | wc -l)
@@ -21,6 +24,18 @@ while true; do
 
     # Show disk usage in yellow
     echo -e "${YELLOW}$(df -h ~)${RESET}"
+
+    if [[ "$NUM_FILES" -eq "$PREV_NUM_FILES" ]]; then
+        SAME_COUNT=$((SAME_COUNT + 1))
+    else
+        SAME_COUNT=0
+    fi
+
+    if [[ "$SAME_COUNT" -ge 2 ]]; then
+        echo "$(date): ⚠️ File count hasn't changed in two checks. Restarting '$PROCESS_NAME'..."
+        pkill -x "$PROCESS_NAME"
+        SAME_COUNT=0
+    fi
 
     # Check if process is running
     if pgrep -x "$PROCESS_NAME" > /dev/null; then
@@ -41,7 +56,7 @@ while true; do
 
         nohup ./build/Crawly -a $FRONTIER_IP -p $FRONTIER_PORT -o /home/wbjin/index/input -s $ARG > ~/CrawlerLog.txt 2>&1 &
     fi
-
+    PREV_NUM_FILES=$NUM_FILES
     sleep 60
 done
 

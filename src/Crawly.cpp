@@ -134,7 +134,7 @@ void Crawly::start() {
                     _client = Client(_frontierIp, _frontierPort);
                     break;
                 } catch (const std::runtime_error& e) {
-                    spdlog::error("Failed to connect to frontier, trying again in 10 seconds");
+                    spdlog::error("Failed to connect to frontier exiting");
                     std::this_thread::sleep_for(std::chrono::seconds(10));
                     exit(1);
                 }
