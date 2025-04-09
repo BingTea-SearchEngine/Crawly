@@ -9,9 +9,12 @@ def map_urls_to_filenames(directory_path):
     """
     url_file_map = {}
 
+    file_count = 0
+    remove_count = 0
     for filename in os.listdir(directory_path):
         if filename == "logs.txt":
             continue
+        file_count+=1
 
         file_path = os.path.join(directory_path, filename)
         
@@ -28,9 +31,13 @@ def map_urls_to_filenames(directory_path):
                 
                 if match:
                     url = match.group(1).strip()
-                    url_file_map.setdefault(url, []).append(filename)
+                    if url not in url_file_map:
+                        url_file_map[url] = filename
+                    else:
+                        os.remove(file_path)
+                        remove_count+=1
 
-    return url_file_map
+    return url_file_map, file_count, remove_count
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -39,11 +46,13 @@ if __name__ == '__main__':
 
     # Replace with your directory
     directory_path = sys.argv[1]
-    url_map = map_urls_to_filenames(directory_path)
+    url_map, file_count, remove_count = map_urls_to_filenames(directory_path)
 
     # Print or further process your mapping
-    for url, files in url_map.items():
-        if len(files) > 1:
-            print(f"URL: {url}")
-            for fname in files:
-                print(f"  -> {fname}")
+    for url, file in url_map.items():
+        print(f"{url}: {file}")
+
+    print(f"Started with {file_count}")
+    print(f"Removed {remove_count}")
+    print(f"{file_count-remove_count} remaining")
+
