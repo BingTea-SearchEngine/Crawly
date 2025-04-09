@@ -31,7 +31,7 @@ while true; do
         SAME_COUNT=0
     fi
 
-    if [[ "$SAME_COUNT" -ge 1 ]]; then
+    if [[ "$SAME_COUNT" -ge 3 ]]; then
         echo "$(date): ⚠️ File count hasn't changed in two checks. Restarting '$PROCESS_NAME'..."
         pkill -x "$PROCESS_NAME"
         SAME_COUNT=0
