@@ -97,7 +97,6 @@ void parseHtml(std::string url,
         std::string u = newUrl.url;
         if (u[0] == '/') {
             u = get_base_url(url) + u;
-            spdlog::info(u);
         }
 
         if (u.compare(0, 5, "https") != 0 || u.size() > 30) {
