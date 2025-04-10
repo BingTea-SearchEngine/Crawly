@@ -100,7 +100,7 @@ void parseHtml(std::string url,
             u = get_base_url(url) + u;
         }
 
-        if (u.compare(0, 5, "https") != 0 || u.size() > 30) {
+        if (u.compare(0, 5, "https") != 0 || u.size() > 100) {
             continue;
         }
         newUrls->push_back(u);
