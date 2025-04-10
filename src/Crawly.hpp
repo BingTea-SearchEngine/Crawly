@@ -12,6 +12,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <regex>
 
 #include "FrontierInterface.hpp"
 #include "GetURL.hpp"

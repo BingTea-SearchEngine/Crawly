@@ -50,6 +50,7 @@ std::optional<std::string> GetCURL::getHtml(std::string url) {
     long response_code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
 
+    curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
 
     if (response_code == 404) {

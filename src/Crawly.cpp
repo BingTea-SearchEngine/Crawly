@@ -17,6 +17,15 @@ bool isEnglish(const std::string& text) {
     return true;
 }
 
+std::string get_base_url(const std::string& url) {
+    std::regex base_url_regex(R"(^(\w+):\/\/([^\/]+))");
+    std::smatch match;
+    if (std::regex_search(url, match, base_url_regex) && match.size() >= 3) {
+        return match.str(1) + "://" + match.str(2);
+    }
+    return "";
+}
+
 void writeParsedHtml(std::ofstream& outFile, std::string url, int pageNum,
                      Parser& htmlParser) {
     outFile << "URL: " << url << " Doc number: " << pageNum <<"\n";
@@ -85,10 +94,16 @@ void parseHtml(std::string url,
     // pthread_mutex_lock(m);
     // robotsUrls->push_back(temp);
     for (auto newUrl : htmlParser.getUrls()) {
-        if (newUrl.url.compare(0, 5, "https") != 0 || newUrl.url.size() > 30) {
+        std::string u = newUrl.url;
+        if (u[0] == '/') {
+            u = get_base_url(url) + u;
+            spdlog::info(u);
+        }
+
+        if (u.compare(0, 5, "https") != 0 || u.size() > 30) {
             continue;
         }
-        newUrls->push_back(newUrl.url);
+        newUrls->push_back(u);
     }
     // pthread_mutex_unlock(m);
     m->unlock();

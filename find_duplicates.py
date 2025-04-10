@@ -31,6 +31,8 @@ def map_urls_to_filenames(directory_path):
                 
                 if match:
                     url = match.group(1).strip()
+                    if url == "https://en.wikipedia.org/wiki/Special:Random":
+                        continue
                     if url not in url_file_map:
                         url_file_map[url] = filename
                     else:
