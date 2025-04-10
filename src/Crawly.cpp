@@ -95,9 +95,9 @@ void parseHtml(std::string url,
     // robotsUrls->push_back(temp);
     for (auto newUrl : htmlParser.getUrls()) {
         std::string u = newUrl.url;
+        spdlog::info(u);
         if (u[0] == '/') {
             u = get_base_url(url) + u;
-            spdlog::info(u);
         }
 
         if (u.compare(0, 5, "https") != 0 || u.size() > 30) {
