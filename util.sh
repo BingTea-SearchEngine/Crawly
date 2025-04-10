@@ -31,7 +31,7 @@ while true; do
         SAME_COUNT=0
     fi
 
-    if [[ "$SAME_COUNT" -ge 5 ]]; then
+    if [[ "$SAME_COUNT" -ge 1 ]]; then
         echo "$(date): ⚠️ File count hasn't changed in two checks. Restarting '$PROCESS_NAME'..."
         pkill -x "$PROCESS_NAME"
         SAME_COUNT=0
@@ -57,6 +57,6 @@ while true; do
         nohup ./build/Crawly -a $FRONTIER_IP -p $FRONTIER_PORT -o /home/wbjin/index/input -s $ARG > ~/CrawlerLog.txt 2>&1 &
     fi
     PREV_NUM_FILES=$NUM_FILES
-    sleep 60
+    sleep 30
 done
 
